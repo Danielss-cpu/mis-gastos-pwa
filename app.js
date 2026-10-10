@@ -3,9 +3,16 @@
 // ============================================
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
+        // Eliminar caché obsoleta si existiera
+        if ('caches' in window) {
+            caches.delete('mis-gastos-v1');
+        }
+
         navigator.serviceWorker.register('./sw.js')
             .then((registration) => {
-                console.log('✅ Service Worker registrado con éxito en el alcance:', registration.scope);
+                console.log('✅ Service Worker registrado con éxito en:', registration.scope);
+                // Forzar comprobación de actualización
+                registration.update();
             })
             .catch((error) => {
                 console.error('❌ Error al registrar el Service Worker:', error);
@@ -70,8 +77,6 @@ function renderizarGastos() {
 
     gastos.forEach((gasto) => {
         const li = document.createElement('li');
-
-        // Extraer nombre limpio de categoría (sin emoji) para clase CSS
         const catKey = gasto.categoria.split(' ').pop();
 
         li.innerHTML = `
@@ -102,7 +107,6 @@ function escapeHTML(texto) {
 }
 
 // ============================================
-// ============================================
 // 5. REGISTRAR Y ELIMINAR GASTOS
 // ============================================
 function agregarGasto() {
@@ -111,13 +115,13 @@ function agregarGasto() {
     const categoria = selectCategoria.value;
 
     if (!concepto) {
-        alert('Por favor, escribe el concepto del gasto.');
+        mostrarToast('Campo obligatorio', 'Por favor, escribe el concepto del gasto.', 'alerta');
         inputConcepto.focus();
         return;
     }
 
     if (isNaN(cantidad) || cantidad <= 0) {
-        alert('Por favor, ingresa una cantidad válida mayor a 0.');
+        mostrarToast('Cantidad inválida', 'Ingresa una cantidad en pesos mayor a 0.', 'alerta');
         inputCantidad.focus();
         return;
     }
@@ -144,7 +148,10 @@ function agregarGasto() {
         'exito'
     );
 
-    // 2. Notificación del sistema (Web/PWA Notification)
+    // 2. Efecto de sonido suave de caja registradora / éxito
+    reproducirSonidoExito();
+
+    // 3. Notificación nativa del sistema (Windows / Celular / Mac)
     notificarGastoRegistrado(nuevoGasto);
 
     // Limpiar campos y dar foco
@@ -166,10 +173,10 @@ function eliminarGasto(id) {
     );
 }
 
-// Escuchadores de eventos para gastos
+// Escuchador de agregar
 btnAgregar.addEventListener('click', agregarGasto);
 
-// Permitir presionar "Enter" en los inputs
+// Permitir presionar "Enter" en los inputs para registrar
 [inputConcepto, inputCantidad].forEach(input => {
     input.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
@@ -187,10 +194,38 @@ listaGastos.addEventListener('click', (e) => {
 });
 
 // ============================================
-// 6. NOTIFICACIONES (SISTEMA Y TOASTS EN PANTALLA)
+// 6. EFECTO DE SONIDO (Web Audio API)
+// ============================================
+function reproducirSonidoExito() {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // Nota Re5
+        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08); // Nota La5
+
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start();
+        osc.stop(ctx.currentTime + 0.22);
+    } catch (e) {
+        // En navegadores con políticas estrictas de audio se omite sin error
+    }
+}
+
+// ============================================
+// 7. NOTIFICACIONES (PANTALLA Y SISTEMA)
 // ============================================
 
-// Mostrar notificación flotante (Toast) en la pantalla
+// A. Mostrar notificación flotante (Toast)
 function mostrarToast(titulo, mensaje, tipo = 'exito') {
     let contenedor = document.getElementById('toast-container');
     if (!contenedor) {
@@ -201,8 +236,11 @@ function mostrarToast(titulo, mensaje, tipo = 'exito') {
     }
 
     const toast = document.createElement('div');
-    toast.className = `toast ${tipo === 'eliminado' ? 'toast-eliminado' : 'toast-exito'}`;
-    const icono = tipo === 'eliminado' ? '🗑️' : '✅';
+    toast.className = `toast toast-${tipo}`;
+
+    let icono = '✅';
+    if (tipo === 'eliminado') icono = '🗑️';
+    if (tipo === 'alerta') icono = '⚠️';
 
     toast.innerHTML = `
         <span class="toast-icono">${icono}</span>
@@ -214,33 +252,53 @@ function mostrarToast(titulo, mensaje, tipo = 'exito') {
 
     contenedor.appendChild(toast);
 
-    // Desaparecer automáticamente después de 3.5 segundos
+    // Remover automáticamente tras 3.5 segundos
     setTimeout(() => {
         toast.style.animation = 'toastOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards';
         setTimeout(() => toast.remove(), 300);
     }, 3500);
 }
 
-// Enviar notificación del sistema (Barra de notificaciones del SO o celular)
+// B. Enviar notificación del sistema (Barra de notificaciones del SO / móvil)
 function enviarNotificacion(titulo, cuerpo) {
+    if (!('Notification' in window)) {
+        console.warn('Este navegador no soporta la API de notificaciones.');
+        return;
+    }
+
+    if (Notification.permission !== 'granted') {
+        console.warn('Permiso de notificación no otorgado aún:', Notification.permission);
+        return;
+    }
+
     const opciones = {
         body: cuerpo,
         icon: 'icons/icon-192.png',
         badge: 'icons/icon-192.png',
         tag: 'gasto-' + Date.now(),
-        renotify: true
+        renotify: true,
+        vibrate: [150, 80, 150]
     };
 
+    // Intentar con Service Worker para soporte óptimo en PWA
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.ready.then((reg) => {
-            reg.showNotification(titulo, opciones);
+            reg.showNotification(titulo, opciones).catch(() => {
+                new Notification(titulo, opciones);
+            });
+        }).catch(() => {
+            new Notification(titulo, opciones);
         });
-    } else if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(titulo, opciones);
+    } else {
+        try {
+            new Notification(titulo, opciones);
+        } catch (e) {
+            console.warn('Fallo al invocar Notification():', e);
+        }
     }
 }
 
-// Notificar cuando se registra un gasto
+// C. Lanzar notificación automática al registrar gasto
 function notificarGastoRegistrado(gasto) {
     if (!('Notification' in window)) return;
 
@@ -250,17 +308,22 @@ function notificarGastoRegistrado(gasto) {
     if (Notification.permission === 'granted') {
         enviarNotificacion(titulo, cuerpo);
     } else if (Notification.permission === 'default') {
-        // Si aún no ha activado permisos, se los pedimos al registrar su primer gasto
+        // Solicita el permiso amigablemente con el clic del usuario
         Notification.requestPermission().then((permiso) => {
             if (permiso === 'granted') {
                 enviarNotificacion(titulo, cuerpo);
-                btnNotificacion.textContent = '🔔 Notificaciones Activas';
-                btnNotificacion.disabled = true;
+                if (btnNotificacion) {
+                    btnNotificacion.textContent = '🔔 Notificaciones Activas';
+                    btnNotificacion.disabled = true;
+                }
             }
         });
+    } else if (Notification.permission === 'denied') {
+        console.log('Las notificaciones del sistema están denegadas en el navegador.');
     }
 }
 
+// D. Botón explícito para activar notificaciones
 async function activarNotificaciones() {
     if (!('Notification' in window)) {
         alert('Este navegador no soporta notificaciones de escritorio.');
@@ -270,41 +333,47 @@ async function activarNotificaciones() {
     if (Notification.permission === 'granted') {
         enviarNotificacion(
             'Mis Gastos PWA 💰',
-            '¡Recordatorio activo! Cada vez que agregues un gasto recibirás una confirmación.'
+            '¡Notificaciones activas! Cada vez que agregues un gasto recibirás una alerta como esta.'
         );
-        mostrarToast('Notificaciones activadas', 'Recibirás avisos al registrar tus compras.');
+        mostrarToast('Notificaciones activas ✅', 'Ya tienes habilitadas las alertas del sistema.', 'exito');
         btnNotificacion.textContent = '🔔 Notificaciones Activas';
         btnNotificacion.disabled = true;
         return;
     }
 
-    if (Notification.permission !== 'denied') {
-        const permiso = await Notification.requestPermission();
-        if (permiso === 'granted') {
-            enviarNotificacion(
-                '¡Bienvenido a Mis Gastos! 💰',
-                'Notificaciones activadas con éxito. Te avisaremos cada vez que registres un gasto.'
-            );
-            mostrarToast('Notificaciones activadas ✅', 'Permisos concedidos correctamente.');
-            btnNotificacion.textContent = '🔔 Notificaciones Activas';
-            btnNotificacion.disabled = true;
-        } else {
-            alert('Has denegado el permiso para mostrar notificaciones.');
-        }
+    if (Notification.permission === 'denied') {
+        mostrarToast(
+            'Notificaciones bloqueadas 🔒',
+            'Haz clic en el candado junto a la URL para permitir notificaciones.',
+            'alerta'
+        );
+        alert('Las notificaciones están bloqueadas en tu navegador.\n\nPara permitirlas:\n1. Haz clic en el icono del candado 🔒 o de ajustes al lado de la barra de dirección.\n2. En "Notificaciones", selecciona "Permitir".\n3. Recarga la página.');
+        return;
+    }
+
+    const permiso = await Notification.requestPermission();
+    if (permiso === 'granted') {
+        enviarNotificacion(
+            '¡Bienvenido a Mis Gastos! 💰',
+            'Notificaciones activadas con éxito. Recibirás un aviso en cada gasto que registres.'
+        );
+        mostrarToast('¡Notificaciones activadas! ✅', 'Permisos concedidos correctamente.', 'exito');
+        btnNotificacion.textContent = '🔔 Notificaciones Activas';
+        btnNotificacion.disabled = true;
     } else {
-        alert('Las notificaciones están bloqueadas en los ajustes de tu navegador. Puedes habilitarlas en el candado de la barra de dirección.');
+        mostrarToast('Permiso no concedido', 'Puedes activarlas más tarde en el navegador.', 'alerta');
     }
 }
 
 btnNotificacion.addEventListener('click', activarNotificaciones);
 
-// Verificar permiso previo al iniciar
+// Comprobar estado previo de notificaciones
 if ('Notification' in window && Notification.permission === 'granted') {
     btnNotificacion.textContent = '🔔 Notificaciones Activas';
 }
 
 // ============================================
-// 7. DETECCIÓN DE CONEXIÓN (ONLINE / OFFLINE)
+// 8. DETECCIÓN DE CONEXIÓN (ONLINE / OFFLINE)
 // ============================================
 function actualizarEstadoRed() {
     if (navigator.onLine) {
@@ -321,15 +390,13 @@ window.addEventListener('offline', actualizarEstadoRed);
 actualizarEstadoRed();
 
 // ============================================
-// 8. INSTALACIÓN DE LA PWA (Prompt)
+// 9. INSTALACIÓN DE LA PWA (Prompt)
 // ============================================
 let eventoInstalacion = null;
 
 window.addEventListener('beforeinstallprompt', (e) => {
-    // Previene el banner automático inmediato del navegador
     e.preventDefault();
     eventoInstalacion = e;
-    // Muestra el botón para que el usuario o evaluador pueda instalarla
     btnInstalar.style.display = 'block';
 });
 
@@ -346,10 +413,10 @@ btnInstalar.addEventListener('click', async () => {
 
 window.addEventListener('appinstalled', () => {
     btnInstalar.style.display = 'none';
-    console.log('¡PWA Mis Gastos instalada con éxito!');
+    mostrarToast('¡App Instalada! 📲', 'Mis Gastos ahora está disponible en tus aplicaciones.', 'exito');
 });
 
 // ============================================
-// 9. INICIALIZACIÓN
+// 10. INICIALIZACIÓN
 // ============================================
 renderizarGastos();

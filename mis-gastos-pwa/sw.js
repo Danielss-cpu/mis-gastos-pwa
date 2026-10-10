@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mis-gastos-v1';
+const CACHE_NAME = 'mis-gastos-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -9,24 +9,25 @@ const ASSETS_TO_CACHE = [
   './icons/icon-512.png'
 ];
 
-// Evento de Instalación: Guarda en caché todos los archivos críticos
+// Instalación: Precarga archivos y fuerza la activación inmediata
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Precargando archivos en caché...');
+      console.log('[Service Worker] Actualizando caché a v2...');
       return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
-// Evento de Activación: Limpia cachés antiguas y toma el control inmediato
+// Activación: Elimina cualquier versión anterior de la caché (v1) y toma el control
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((name) => {
           if (name !== CACHE_NAME) {
-            console.log('[Service Worker] Eliminando caché obsoleta:', name);
+            console.log('[Service Worker] Eliminando caché vieja:', name);
             return caches.delete(name);
           }
         })
@@ -35,46 +36,31 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Evento Fetch: Estrategia de responder desde Caché primero con respaldo de Red
+// Estrategia Network-First con respaldo Offline:
+// Busca siempre la versión más reciente en la red. Si no hay conexión (offline), usa la caché.
 self.addEventListener('fetch', (event) => {
-  // Solo interceptar peticiones GET
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Si está en caché, responder inmediatamente y actualizar en segundo plano
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse);
-            });
-          }
-        }).catch(() => {
-          // Si no hay red, no pasa nada; ya se entregó el recurso desde la caché
-        });
-        return cachedResponse;
-      }
-
-      // Si no estaba en caché, pedir a la red
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
         }
-
-        const responseClone = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseClone);
-        });
-
         return networkResponse;
-      }).catch(() => {
-        // En caso de estar sin conexión y navegar a una página HTML
-        if (event.request.headers.get('accept')?.includes('text/html')) {
-          return caches.match('./index.html');
-        }
-      });
-    })
+      })
+      .catch(() => {
+        // En caso de estar sin conexión a internet (offline)
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
+          if (event.request.headers.get('accept')?.includes('text/html')) {
+            return caches.match('./index.html');
+          }
+        });
+      })
   );
 });
 
