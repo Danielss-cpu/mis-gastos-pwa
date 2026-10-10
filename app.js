@@ -102,6 +102,7 @@ function escapeHTML(texto) {
 }
 
 // ============================================
+// ============================================
 // 5. REGISTRAR Y ELIMINAR GASTOS
 // ============================================
 function agregarGasto() {
@@ -136,6 +137,16 @@ function agregarGasto() {
     guardarEnLocalStorage();
     renderizarGastos();
 
+    // 1. Notificación visual en pantalla (Toast)
+    mostrarToast(
+        '¡Gasto registrado con éxito! 🎉',
+        `${nuevoGasto.concepto} por ${formatearMoneda(nuevoGasto.cantidad)} (${nuevoGasto.categoria})`,
+        'exito'
+    );
+
+    // 2. Notificación del sistema (Web/PWA Notification)
+    notificarGastoRegistrado(nuevoGasto);
+
     // Limpiar campos y dar foco
     inputConcepto.value = '';
     inputCantidad.value = '';
@@ -143,9 +154,16 @@ function agregarGasto() {
 }
 
 function eliminarGasto(id) {
+    const gastoEliminado = gastos.find(item => item.id === id);
     gastos = gastos.filter(item => item.id !== id);
     guardarEnLocalStorage();
     renderizarGastos();
+
+    mostrarToast(
+        'Gasto eliminado 🗑️',
+        gastoEliminado ? `"${gastoEliminado.concepto}" fue eliminado.` : 'El gasto fue eliminado del historial.',
+        'eliminado'
+    );
 }
 
 // Escuchadores de eventos para gastos
@@ -169,22 +187,77 @@ listaGastos.addEventListener('click', (e) => {
 });
 
 // ============================================
-// 6. NOTIFICACIONES WEB
+// 6. NOTIFICACIONES (SISTEMA Y TOASTS EN PANTALLA)
 // ============================================
+
+// Mostrar notificación flotante (Toast) en la pantalla
+function mostrarToast(titulo, mensaje, tipo = 'exito') {
+    let contenedor = document.getElementById('toast-container');
+    if (!contenedor) {
+        contenedor = document.createElement('div');
+        contenedor.id = 'toast-container';
+        contenedor.className = 'toast-container';
+        document.body.appendChild(contenedor);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${tipo === 'eliminado' ? 'toast-eliminado' : 'toast-exito'}`;
+    const icono = tipo === 'eliminado' ? '🗑️' : '✅';
+
+    toast.innerHTML = `
+        <span class="toast-icono">${icono}</span>
+        <div class="toast-texto">
+            <span class="toast-titulo">${escapeHTML(titulo)}</span>
+            <span class="toast-mensaje">${escapeHTML(mensaje)}</span>
+        </div>
+    `;
+
+    contenedor.appendChild(toast);
+
+    // Desaparecer automáticamente después de 3.5 segundos
+    setTimeout(() => {
+        toast.style.animation = 'toastOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards';
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
+}
+
+// Enviar notificación del sistema (Barra de notificaciones del SO o celular)
 function enviarNotificacion(titulo, cuerpo) {
     const opciones = {
         body: cuerpo,
         icon: 'icons/icon-192.png',
         badge: 'icons/icon-192.png',
-        tag: 'mis-gastos-recordatorio'
+        tag: 'gasto-' + Date.now(),
+        renotify: true
     };
 
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.ready.then((reg) => {
             reg.showNotification(titulo, opciones);
         });
-    } else if ('Notification' in window) {
+    } else if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(titulo, opciones);
+    }
+}
+
+// Notificar cuando se registra un gasto
+function notificarGastoRegistrado(gasto) {
+    if (!('Notification' in window)) return;
+
+    const titulo = '¡Gasto Registrado! 💳';
+    const cuerpo = `Registraste "${gasto.concepto}" por ${formatearMoneda(gasto.cantidad)} (${gasto.categoria}).`;
+
+    if (Notification.permission === 'granted') {
+        enviarNotificacion(titulo, cuerpo);
+    } else if (Notification.permission === 'default') {
+        // Si aún no ha activado permisos, se los pedimos al registrar su primer gasto
+        Notification.requestPermission().then((permiso) => {
+            if (permiso === 'granted') {
+                enviarNotificacion(titulo, cuerpo);
+                btnNotificacion.textContent = '🔔 Notificaciones Activas';
+                btnNotificacion.disabled = true;
+            }
+        });
     }
 }
 
@@ -197,8 +270,9 @@ async function activarNotificaciones() {
     if (Notification.permission === 'granted') {
         enviarNotificacion(
             'Mis Gastos PWA 💰',
-            '¡Recordatorio activo! Recuerda registrar tus compras de hoy para controlar tu presupuesto.'
+            '¡Recordatorio activo! Cada vez que agregues un gasto recibirás una confirmación.'
         );
+        mostrarToast('Notificaciones activadas', 'Recibirás avisos al registrar tus compras.');
         btnNotificacion.textContent = '🔔 Notificaciones Activas';
         btnNotificacion.disabled = true;
         return;
@@ -209,15 +283,16 @@ async function activarNotificaciones() {
         if (permiso === 'granted') {
             enviarNotificacion(
                 '¡Bienvenido a Mis Gastos! 💰',
-                'Las notificaciones quedaron activadas con éxito. Te recordaremos llevar tu registro.'
+                'Notificaciones activadas con éxito. Te avisaremos cada vez que registres un gasto.'
             );
+            mostrarToast('Notificaciones activadas ✅', 'Permisos concedidos correctamente.');
             btnNotificacion.textContent = '🔔 Notificaciones Activas';
             btnNotificacion.disabled = true;
         } else {
             alert('Has denegado el permiso para mostrar notificaciones.');
         }
     } else {
-        alert('Las notificaciones están bloqueadas en los ajustes de tu navegador.');
+        alert('Las notificaciones están bloqueadas en los ajustes de tu navegador. Puedes habilitarlas en el candado de la barra de dirección.');
     }
 }
 
