@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="description" content="Mis Gastos PWA - Controla tus gastos personales de forma sencilla, rápida y sin conexión a internet.">
+
+    <title>Mis Gastos PWA</title>
+
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+
+<body>
+
+    <div class="network-badge" id="estado-red">
+        <span class="dot"></span> <span id="texto-red">En línea</span>
+    </div>
+
+    <header>
+        <div class="header-icon">💰</div>
+        <h1>Mis Gastos</h1>
+        <p>Controla tus gastos personales</p>
+    </header>
+
+    <main>
+
+        <!-- Botón de Instalación PWA (aparece si el navegador lo permite) -->
+        <button id="btn-instalar" class="btn-instalar" style="display: none;">
+            📲 Instalar Aplicación
+        </button>
+
+        <section>
+            <h2>Registrar gasto</h2>
+
+            <input
+                type="text"
+                id="concepto"
+                placeholder="Concepto del gasto"
+                autocomplete="off"
+            >
+
+            <input
+                type="number"
+                id="cantidad"
+                placeholder="Cantidad en pesos"
+                min="0.01"
+                step="0.01"
+            >
+
+            <select id="categoria">
+                <option value="Comida">🍔 Comida</option>
+                <option value="Transporte">🚗 Transporte</option>
+                <option value="Entretenimiento">🎬 Entretenimiento</option>
+                <option value="Educación">📚 Educación</option>
+                <option value="Otros">💡 Otros</option>
+            </select>
+
+            <button id="agregar">
+                Registrar gasto
+            </button>
+        </section>
+
+        <section>
+            <h2>Resumen</h2>
+
+            <p>
+                Total gastado:
+                <strong id="total">$0.00</strong>
+            </p>
+        </section>
+
+        <section>
+            <h2>Historial de gastos</h2>
+
+            <ul id="lista-gastos"></ul>
+        </section>
+
+        <button id="notificacion">
+            🔔 Activar notificaciones
+        </button>
+
+    </main>
+
+    <script src="app.js"></script>
+
+</body>
+
+</html>

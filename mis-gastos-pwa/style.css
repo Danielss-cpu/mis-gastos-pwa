@@ -1,0 +1,283 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f1f5f9;
+    color: #1e293b;
+    margin: 0;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+/* Indicador de conexión / red */
+.network-badge {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 9999px;
+    background-color: #dcfce7;
+    color: #166534;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    z-index: 100;
+    transition: all 0.3s ease;
+}
+
+.network-badge .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #22c55e;
+}
+
+.network-badge.offline {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.network-badge.offline .dot {
+    background-color: #ef4444;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.header-icon {
+    font-size: 40px;
+    margin-bottom: 4px;
+    animation: bounce 2s infinite ease-in-out;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+header h1 {
+    color: #2563eb;
+    margin: 0 0 6px 0;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+}
+
+header p {
+    color: #64748b;
+    margin: 0;
+    font-size: 15px;
+}
+
+main {
+    max-width: 500px;
+    margin: auto;
+}
+
+/* Botón de instalación PWA */
+.btn-instalar {
+    background: linear-gradient(135deg, #0ea5e9, #2563eb);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-instalar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.4);
+}
+
+section {
+    background-color: white;
+    padding: 22px;
+    margin-bottom: 20px;
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+}
+
+h2 {
+    font-size: 19px;
+    font-weight: 700;
+    margin-top: 0;
+    margin-bottom: 14px;
+    color: #0f172a;
+}
+
+input,
+select,
+button {
+    width: 100%;
+    padding: 12px 14px;
+    margin-top: 10px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-family: inherit;
+    transition: all 0.2s ease;
+}
+
+input,
+select {
+    border: 1.5px solid #cbd5e1;
+    background-color: #f8fafc;
+    color: #1e293b;
+}
+
+input:focus,
+select:focus {
+    outline: none;
+    border-color: #2563eb;
+    background-color: white;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+button {
+    border: none;
+    background-color: #2563eb;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 3px 10px rgba(37, 99, 235, 0.25);
+}
+
+button:hover {
+    background-color: #1d4ed8;
+    transform: translateY(-1px);
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+#total {
+    color: #2563eb;
+    font-size: 24px;
+    font-weight: 800;
+    margin-left: 6px;
+}
+
+#lista-gastos {
+    padding: 0;
+    margin: 0;
+}
+
+#lista-gastos li {
+    list-style: none;
+    padding: 12px 14px;
+    margin-top: 10px;
+    background-color: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.gasto-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-grow: 1;
+}
+
+.gasto-concepto {
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 15px;
+}
+
+.gasto-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.categoria-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 600;
+    background-color: #e2e8f0;
+    color: #475569;
+}
+
+.categoria-Comida { background-color: #fef3c7; color: #92400e; }
+.categoria-Transporte { background-color: #e0f2fe; color: #075985; }
+.categoria-Entretenimiento { background-color: #f3e8ff; color: #6b21a8; }
+.categoria-Educación { background-color: #dcfce7; color: #166534; }
+.categoria-Otros { background-color: #f1f5f9; color: #475569; }
+
+.gasto-monto-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.gasto-monto {
+    font-weight: 700;
+    color: #0f172a;
+    font-size: 16px;
+    white-space: nowrap;
+}
+
+.btn-eliminar {
+    width: auto;
+    padding: 6px 10px;
+    margin-top: 0;
+    background-color: #fee2e2;
+    color: #dc2626;
+    border-radius: 8px;
+    font-size: 13px;
+    box-shadow: none;
+}
+
+.btn-eliminar:hover {
+    background-color: #ef4444;
+    color: white;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 24px 10px;
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+#notificacion {
+    background-color: #0f172a;
+    margin-top: 10px;
+}
+
+#notificacion:hover {
+    background-color: #1e293b;
+}
